@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spain &amp; Portugal 2026</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css">
+<style>
+:root{
+  --paper:#FAF7F2; --card:#FFFFFF; --ink:#1B1917; --muted:#6E6558; --faint:#968D7E;
+  --line:#E4DCCE; --line2:#F0EAE0;
+  --food:#C0431B; --sight:#1F5673; --wine:#7B2D4E; --lodging:#3D6B45;
+  --route:#9A7B4F; --gold:#B8873B;
+  --shadow:0 1px 2px rgba(40,30,15,.06), 0 6px 20px rgba(40,30,15,.06);
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--sans); background:var(--paper); color:var(--ink);
+  font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%;
+}
+a{color:var(--sight)}
+
+/* ---------- header ---------- */
+header{
+  background:linear-gradient(180deg,#2A2723 0%,#3A342C 100%); color:#F5EFE4;
+  padding:22px 20px 0; position:relative;
+}
+.hwrap{max-width:1280px;margin:0 auto}
+h1{
+  font-family:var(--serif); font-weight:600; font-size:clamp(22px,3.6vw,32px);
+  margin:0 0 2px; letter-spacing:-.01em;
+}
+.sub{color:#C3B79F; font-size:13px; letter-spacing:.04em; text-transform:uppercase}
+.stats{display:flex; flex-wrap:wrap; gap:8px 22px; margin:14px 0 16px}
+.stat b{font-family:var(--serif); font-size:19px; font-weight:600; display:block; line-height:1.15}
+.stat span{font-size:11px; color:#B2A68E; text-transform:uppercase; letter-spacing:.07em}
+
+/* ---------- tabs ---------- */
+nav{display:flex; gap:2px; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch}
+nav::-webkit-scrollbar{display:none}
+nav button{
+  appearance:none; border:0; background:transparent; color:#B7AB93; cursor:pointer;
+  font:inherit; font-size:13.5px; font-weight:500; letter-spacing:.01em;
+  padding:11px 15px; border-radius:8px 8px 0 0; white-space:nowrap; transition:.15s;
+}
+nav button:hover{color:#F0E7D6; background:rgba(255,255,255,.06)}
+nav button.on{background:var(--paper); color:var(--ink); font-weight:600}
+
+/* ---------- layout ---------- */
+main{max-width:1280px; margin:0 auto; padding:18px 20px 60px}
+.panel{display:none}
+.panel.on{display:block}
+
+/* ---------- controls ---------- */
+.bar{
+  display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+  margin-bottom:14px;
+}
+.chip{
+  appearance:none; font:inherit; font-size:12.5px; cursor:pointer;
+  border:1px solid var(--line); background:var(--card); color:var(--muted);
+  padding:6px 12px; border-radius:999px; transition:.13s; white-space:nowrap;
+}
+.chip:hover{border-color:var(--faint); color:var(--ink)}
+.chip.on{background:var(--ink); border-color:var(--ink); color:#FBF8F2; font-weight:500}
+.chip .dot{display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; vertical-align:-1px}
+.chip.on .dot{box-shadow:0 0 0 2px rgba(255,255,255,.35)}
+input[type=search]{
+  font:inherit; font-size:13.5px; padding:7px 12px; border-radius:999px;
+  border:1px solid var(--line); background:var(--card); color:var(--ink); min-width:190px; flex:1 1 190px; max-width:320px;
+}
+input[type=search]:focus{outline:2px solid var(--gold); outline-offset:-1px; border-color:transparent}
+.sep{width:1px; height:20px; background:var(--line); margin:0 3px}
+.count{font-size:12.5px; color:var(--faint); margin-left:auto; white-space:nowrap}
+
+/* ---------- map ---------- */
+#map{
+  height:min(66vh,660px); min-height:400px; border-radius:12px; border:1px solid var(--line);
+  box-shadow:var(--shadow); background:#E8E2D6; z-index:1;
+}
+.legend{
+  display:flex; flex-wrap:wrap; gap:6px 18px; margin-top:12px;
+  font-size:12px; color:var(--muted);
+}
+.legend i{display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:-1px}
+.legend .hollow{background:transparent; border:2px solid var(--faint); width:9px; height:9px}
+.legend .lineswatch{display:inline-block;width:18px;height:0;border-top:2px dashed var(--route);margin-right:6px;vertical-align:4px}
+
+/* leaflet pins */
+.pin{
+  width:22px; height:22px; border-radius:50% 50% 50% 0; transform:rotate(-45deg);
+  border:2px solid #fff; box-shadow:0 2px 5px rgba(0,0,0,.3);
+}
+.pin.dt{border-style:dashed; border-color:#fff}
+.pin.dt::after{
+  content:''; position:absolute; inset:4px; background:#fff; border-radius:50%;
+}
+.legnum{
+  background:var(--ink); color:#FBF8F2; font-family:var(--serif); font-weight:600;
+  width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  border:2px solid #FBF8F2; box-shadow:0 2px 6px rgba(0,0,0,.35); font-size:13px;
+}
+.leaflet-popup-content-wrapper{border-radius:10px; box-shadow:0 8px 30px rgba(30,20,10,.22)}
+.leaflet-popup-content{margin:14px 16px; font-family:var(--sans); font-size:13.5px; line-height:1.45; width:280px!important}
+.pop h3{font-family:var(--serif); font-size:17px; margin:0 0 3px; font-weight:600; line-height:1.2}
+.pop .loc{font-size:11.5px; color:var(--faint); text-transform:uppercase; letter-spacing:.05em; margin-bottom:9px}
+.pop dl{margin:0; display:grid; grid-template-columns:auto 1fr; gap:3px 10px; font-size:12.5px}
+.pop dt{color:var(--faint); white-space:nowrap}
+.pop dd{margin:0; color:var(--ink)}
+.pop .why{margin:8px 0 0; font-size:13px; color:#3A342C}
+.pop .links{margin-top:11px; padding-top:10px; border-top:1px solid var(--line2); display:flex; gap:14px; font-size:12.5px}
+.pop .approx{
+  display:inline-block; margin-top:9px; font-size:11px; color:#8A6A2E;
+  background:#FBF3E0; border:1px solid #EBDCB8; padding:2px 7px; border-radius:4px;
+}
+
+/* ---------- badges ---------- */
+.badge{
+  display:inline-block; font-size:10.5px; font-weight:600; letter-spacing:.05em; text-transform:uppercase;
+  padding:2px 7px; border-radius:4px; border:1px solid; white-space:nowrap;
+}
+.b-food{color:var(--food); border-color:#EBC7B6; background:#FCF1EC}
+.b-sight{color:var(--sight); border-color:#B9CFDB; background:#EDF4F8}
+.b-wine{color:var(--wine); border-color:#DCBECB; background:#FAEFF3}
+.b-lodging{color:var(--lodging); border-color:#BDD2BF; background:#EEF5EF}
+.b-A{color:#9A2A18; border-color:#EFC3B9; background:#FDF0EC}
+.b-B{color:#7A6320; border-color:#E8DAAE; background:#FCF7E7}
+.b-C{color:#5C6570; border-color:#D3DAE1; background:#F1F4F7}
+.b-CONFIRMED{color:#2C6437; border-color:#B6D5BC; background:#EDF6EF}
+.b-WAITLIST{color:#8A5B10; border-color:#EDD5A8; background:#FCF4E4}
+.b-NOTSTARTED{color:#8C3B2A; border-color:#EFC9BF; background:#FDF1ED}
+.b-NOBOOKING{color:#5C6570; border-color:#D3DAE1; background:#F1F4F7}
+
+/* ---------- tables ---------- */
+.tablewrap{
+  overflow-x:auto; background:var(--card); border:1px solid var(--line);
+  border-radius:12px; box-shadow:var(--shadow); -webkit-overflow-scrolling:touch;
+}
+table{border-collapse:collapse; width:100%; font-size:13.5px; min-width:640px}
+th{
+  text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--faint);
+  font-weight:600; padding:11px 14px; border-bottom:1px solid var(--line);
+  background:#FDFBF7; position:sticky; top:0; cursor:pointer; user-select:none; white-space:nowrap; z-index:2;
+}
+th:hover{color:var(--ink); background:#F7F2E9}
+th.sorted::after{content:' \25B2'; font-size:8px; color:var(--gold)}
+th.sorted.desc::after{content:' \25BC'}
+td{padding:11px 14px; border-bottom:1px solid var(--line2); vertical-align:top}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:#FDFBF6}
+td.name{font-weight:600; min-width:150px}
+td.why{color:var(--muted); font-size:13px; min-width:230px; max-width:360px}
+td.nowrap{white-space:nowrap}
+.maplink{
+  font-size:11px; color:var(--faint); text-decoration:none; border-bottom:1px dotted var(--line);
+  display:inline-block; margin-top:3px;
+}
+.maplink:hover{color:var(--sight); border-color:var(--sight)}
+.empty{padding:40px 20px; text-align:center; color:var(--faint); font-size:14px}
+
+/* ---------- itinerary cards ---------- */
+.legs{display:grid; gap:12px}
+.leg{
+  background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px;
+  box-shadow:var(--shadow); display:grid; grid-template-columns:auto 1fr auto; gap:16px; align-items:start;
+}
+.leg .no{
+  font-family:var(--serif); font-size:20px; font-weight:600; color:#FBF8F2; background:var(--ink);
+  width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+}
+.leg h3{font-family:var(--serif); font-size:19px; margin:0 0 2px; font-weight:600}
+.leg .dates{font-size:12.5px; color:var(--muted)}
+.leg .note{font-size:13px; color:var(--muted); margin-top:7px}
+.leg .drive{
+  font-size:12px; color:var(--route); background:#FBF6EC; border:1px solid #EDE0C9;
+  padding:4px 9px; border-radius:6px; display:inline-block; margin-top:8px;
+}
+.leg .nights{text-align:right; white-space:nowrap}
+.leg .nights b{font-family:var(--serif); font-size:22px; font-weight:600; display:block; line-height:1}
+.leg .nights span{font-size:10.5px; color:var(--faint); text-transform:uppercase; letter-spacing:.06em}
+
+/* ---------- day by day ---------- */
+.days{display:grid; gap:10px}
+.day{
+  background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 18px;
+  box-shadow:var(--shadow); display:grid; grid-template-columns:78px 1fr; gap:18px; align-items:start;
+}
+.day .dt{border-right:1px solid var(--line2); padding-right:14px}
+.day .dow{font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--faint)}
+.day .num{font-family:var(--serif); font-size:26px; font-weight:600; line-height:1.05}
+.day .mon{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em}
+.day h4{font-family:var(--serif); font-size:17px; margin:0; font-weight:600}
+.day .city-sub{font-size:11.5px; color:var(--faint); margin-top:1px}
+.day .drivebar{
+  font-size:12px; color:var(--route); background:#FBF6EC; border:1px solid #EDE0C9;
+  padding:5px 10px; border-radius:6px; margin-top:9px;
+}
+.evts{margin:10px 0 0; padding:0; list-style:none; display:grid; gap:7px}
+.evts li{
+  display:flex; gap:10px; align-items:baseline; font-size:13.5px;
+  padding:8px 11px; background:#FBF9F4; border-left:3px solid var(--gold); border-radius:0 6px 6px 0;
+}
+.evts li .t{font-variant-numeric:tabular-nums; color:var(--muted); font-size:12.5px; white-space:nowrap; min-width:62px}
+.evts li .w{font-weight:600}
+.evts li .n{color:var(--faint); font-size:12.5px; font-weight:400}
+.day.free .quiet{font-size:12.5px; color:var(--faint); font-style:italic; margin-top:9px}
+
+/* ---------- notes ---------- */
+.qs{display:grid; gap:10px}
+.q{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:15px 18px; box-shadow:var(--shadow)}
+.q .top{display:flex; gap:10px; align-items:center; margin-bottom:5px; flex-wrap:wrap}
+.q .topic{font-weight:600; font-size:14px}
+.q p{margin:0; font-size:13.5px; color:var(--muted)}
+.q .ans{margin-top:8px; padding-top:8px; border-top:1px solid var(--line2); font-size:13px; color:var(--ink)}
+.b-OPEN{color:#8C3B2A; border-color:#EFC9BF; background:#FDF1ED}
+.b-RESOLVED{color:#2C6437; border-color:#B6D5BC; background:#EDF6EF}
+.b-NOTED{color:#5C6570; border-color:#D3DAE1; background:#F1F4F7}
+
+footer{
+  max-width:1280px; margin:0 auto; padding:0 20px 40px;
+  font-size:11.5px; color:var(--faint); line-height:1.6;
+}
+
+@media (max-width:720px){
+  main{padding:14px 13px 50px}
+  header{padding:18px 14px 0}
+  .stats{gap:6px 16px; margin:11px 0 12px}
+  .leg{grid-template-columns:auto 1fr; gap:12px}
+  .leg .nights{grid-column:2; text-align:left; display:flex; gap:6px; align-items:baseline; margin-top:4px}
+  .leg .nights b{font-size:16px}
+  .day{grid-template-columns:60px 1fr; gap:12px; padding:13px 14px}
+  #map{height:64vh; min-height:340px}
+  .count{width:100%; margin-left:0; text-align:right}
+  .leaflet-popup-content{width:230px!important}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hwrap">
+    <h1 id="ttl"></h1>
+    <div class="sub" id="dts"></div>
+    <div class="stats" id="stats"></div>
+    <nav id="nav"></nav>
+  </div>
+</header>
+
+<main>
+  <section class="panel on" id="p-map">
+    <div class="bar" id="mapbar"></div>
+    <div class="bar" id="mapcity"></div>
+    <div id="map"></div>
+    <div class="legend">
+      <span><i style="background:var(--food)"></i>Food &amp; drink</span>
+      <span><i style="background:var(--sight)"></i>Sights &amp; culture</span>
+      <span><i style="background:var(--wine)"></i>Wine</span>
+      <span><i style="background:var(--lodging)"></i>Lodging</span>
+      <span><i class="hollow"></i>Day trip / outside the base city</span>
+      <span><span class="lineswatch"></span>Driving route, legs 1&ndash;8</span>
+    </div>
+  </section>
+
+  <section class="panel" id="p-itin"><div class="legs" id="legs"></div></section>
+  <section class="panel" id="p-days">
+    <div class="bar" id="daysbar"></div>
+    <div class="days" id="days"></div>
+  </section>
+  <section class="panel" id="p-res">
+    <div class="bar" id="resbar"></div>
+    <div class="tablewrap"><table id="t-res"></table></div>
+  </section>
+  <section class="panel" id="p-rest">
+    <div class="bar" id="restbar"></div>
+    <div class="tablewrap"><table id="t-rest"></table></div>
+  </section>
+  <section class="panel" id="p-sight">
+    <div class="bar" id="sightbar"></div>
+    <div class="tablewrap"><table id="t-sight"></table></div>
+  </section>
+  <section class="panel" id="p-notes"><div class="qs" id="qs"></div></section>
+</main>
+
+<footer>
+  <div id="foot"></div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+<script>
+const D = /*__DATA__*/;
+
+/* ================= helpers ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const CATNAME = {food:'Food & drink', sight:'Sight', wine:'Wine', lodging:'Lodging'};
+const CATCOLOR = {food:'#C0431B', sight:'#1F5673', wine:'#7B2D4E', lodging:'#3D6B45'};
+const slug = s => String(s||'').replace(/[^A-Za-z]/g,'').toUpperCase();
+const gmapsSearch = p => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.name + ', ' + p.city);
+const gmapsDir = p => 'https://www.google.com/maps/dir/?api=1&destination=' + p.lat + ',' + p.lon;
+const badge = (txt, cls) => txt ? '<span class="badge b-'+(cls||slug(txt))+'">'+esc(txt)+'</span>' : '';
+
+/* ================= header ================= */
+$('#ttl').textContent = D.meta.title;
+$('#dts').textContent = D.meta.dates;
+$('#stats').innerHTML = [
+  [D.meta.nights, 'nights'], [D.route.length-1 + ' legs', 'by car'],
+  [D.meta.km.toLocaleString()+' km', 'total driving'], [D.meta.drive, 'behind the wheel'],
+  [D.pois.length, 'places on the map']
+].map(([b,s]) => '<div class="stat"><b>'+esc(b)+'</b><span>'+esc(s)+'</span></div>').join('');
+
+const TABS = [['map','Map'],['itin','Itinerary'],['days','Day by Day'],['res','Reservations'],
+              ['rest','Restaurants'],['sight','Sights'],['notes','Open Questions']];
+$('#nav').innerHTML = TABS.map(([id,label],i) =>
+  '<button data-t="'+id+'"'+(i===0?' class="on"':'')+'>'+label+'</button>').join('');
+$('#nav').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('on', x===b));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('on', p.id === 'p'+'-'+b.dataset.t));
+  if(b.dataset.t === 'map' && window.__map) setTimeout(()=>window.__map.invalidateSize(), 30);
+  window.scrollTo({top:0, behavior:'instant'});
+});
+
+/* ================= map ================= */
+const map = L.map('map', {scrollWheelZoom:true, zoomControl:true}).setView([40.0,-5.2], 6);
+window.__map = map;
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom:19,
+  attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
+
+/* route */
+const routeLayer = L.layerGroup().addTo(map);
+const rpts = D.route.map(r => [r.lat, r.lon]);
+L.polyline(rpts, {color:'#9A7B4F', weight:2.5, dashArray:'7,7', opacity:.85}).addTo(routeLayer);
+D.route.forEach((r, i) => {
+  L.marker([r.lat, r.lon], {
+    icon: L.divIcon({className:'', html:'<div class="legnum">'+r.leg+'</div>', iconSize:[26,26], iconAnchor:[13,13]}),
+    zIndexOffset: 1000
+  }).addTo(routeLayer).bindPopup(
+    '<div class="pop"><h3>'+esc(r.city)+'</h3><div class="loc">Leg '+r.leg+' &middot; '+r.nights+' night'+(r.nights>1?'s':'')+'</div>'+
+    (r.km ? '<dl><dt>Drive in</dt><dd>'+r.km+' km &middot; '+esc(r.time)+'</dd></dl>' : '<div class="why">Trip starts here.</div>')+
+    '</div>');
+  if (i > 0 && r.km) {
+    const prev = D.route[i-1], mid = [(prev.lat+r.lat)/2, (prev.lon+r.lon)/2];
+    L.marker(mid, {icon: L.divIcon({className:'', iconSize:[100,18], iconAnchor:[50,9],
+      html:'<div style="font:600 10.5px var(--sans,sans-serif);color:#7A6242;background:rgba(250,247,242,.92);border:1px solid #E5D9C4;border-radius:4px;padding:1px 5px;text-align:center;white-space:nowrap">'+r.km+' km &middot; '+esc(r.time.replace(' min','').replace(' hr','h'))+'</div>'}),
+      interactive:false}).addTo(routeLayer);
+  }
+});
+
+/* pois */
+const cluster = L.markerClusterGroup({
+  maxClusterRadius: 42, spiderfyOnMaxZoom:true, showCoverageOnHover:false, disableClusteringAtZoom:17,
+  iconCreateFunction: c => L.divIcon({
+    className:'',
+    html:'<div style="background:rgba(43,39,35,.9);color:#FBF8F2;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:600 13px sans-serif;border:2px solid #FBF8F2;box-shadow:0 2px 6px rgba(0,0,0,.3)">'+c.getChildCount()+'</div>',
+    iconSize:[32,32]})
+}).addTo(map);
+
+function popupHTML(p){
+  const s = p.sources, rows = [];
+  const push = (k,v) => { if(v!=null && v!=='' ) rows.push('<dt>'+esc(k)+'</dt><dd>'+esc(v)+'</dd>'); };
+  let why = '';
+  if (s.restaurant){ why = s.restaurant['Signature / Why go']; push('Price', s.restaurant.Price); push('Booking', s.restaurant.Reservation); }
+  if (s.sight){ why = why || s.sight['Why / What to know'];
+    push('Time needed', s.sight['Time needed']); push('Advance ticket', s.sight['Advance Ticket']); push('Priority', s.sight.Priority); }
+  if (s.reservation){ const r = s.reservation;
+    push('Status', r.Status); push('Date', r['Dining Date']); push('Time', r.Time);
+    push('Party', r.Party); push('Book by', r['Book By / Window']); push('How', r['How to Book']);
+    why = why || r.Notes; }
+  if (s.lodging){ push('Nights', s.lodging.Nights); push('Arrive', s.lodging.Arrive); push('Depart', s.lodging.Depart); }
+  return '<div class="pop">'
+    + '<h3>'+esc(p.name)+'</h3>'
+    + '<div class="loc">'+esc(p.city)+' &middot; '+esc(p.raw_category || CATNAME[p.category])+(p.daytrip?' &middot; day trip':'')+'</div>'
+    + (rows.length ? '<dl>'+rows.join('')+'</dl>' : '')
+    + (why ? '<p class="why">'+esc(why)+'</p>' : '')
+    + (!p.exact ? '<div class="approx">Approximate &mdash; pinned at '+esc(p.matched||p.city)+'</div>' : '')
+    + '<div class="links"><a href="'+gmapsSearch(p)+'" target="_blank" rel="noopener">Open in Maps</a>'
+    + '<a href="'+gmapsDir(p)+'" target="_blank" rel="noopener">Directions</a></div>'
+    + '</div>';
+}
+
+const markers = D.pois.map(p => {
+  const m = L.marker([p.lat, p.lon], {
+    icon: L.divIcon({
+      className:'',
+      html:'<div class="pin'+(p.daytrip?' dt':'')+'" style="background:'+CATCOLOR[p.category]+';position:relative"></div>',
+      iconSize:[22,22], iconAnchor:[11,22], popupAnchor:[0,-20]
+    }),
+    title: p.name
+  });
+  m.bindPopup(popupHTML(p), {maxWidth:320});
+  m._poi = p;
+  return m;
+});
+
+/* filters */
+const F = {cats:new Set(['food','sight','wine','lodging']), city:'ALL', route:true};
+const CITIES = ['ALL', ...new Set(D.pois.map(p => p.city))];
+$('#mapbar').innerHTML =
+  ['food','sight','wine','lodging'].map(c =>
+    '<button class="chip on" data-cat="'+c+'"><span class="dot" style="background:'+CATCOLOR[c]+'"></span>'+CATNAME[c]+'</button>').join('')
+  + '<span class="sep"></span><button class="chip on" data-route="1">Driving route</button>'
+  + '<span class="count" id="mapcount"></span>';
+$('#mapcity').innerHTML = CITIES.map(c =>
+  '<button class="chip'+(c==='ALL'?' on':'')+'" data-city="'+esc(c)+'">'+(c==='ALL'?'All cities':esc(c))+'</button>').join('');
+
+function drawMarkers(fit){
+  cluster.clearLayers();
+  const vis = markers.filter(m => F.cats.has(m._poi.category) && (F.city==='ALL' || m._poi.city===F.city));
+  cluster.addLayers(vis);
+  $('#mapcount').textContent = vis.length + ' of ' + markers.length + ' places';
+  if (fit && vis.length){
+    map.fitBounds(L.latLngBounds(vis.map(m => m.getLatLng())).pad(0.18), {maxZoom:15});
+  } else if (fit) {
+    map.setView([40.0,-5.2], 6);
+  }
+}
+$('#mapbar').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if(!b) return;
+  if (b.dataset.cat){
+    F.cats.has(b.dataset.cat) ? F.cats.delete(b.dataset.cat) : F.cats.add(b.dataset.cat);
+    b.classList.toggle('on'); drawMarkers(false);
+  } else if (b.dataset.route){
+    F.route = !F.route; b.classList.toggle('on');
+    F.route ? routeLayer.addTo(map) : map.removeLayer(routeLayer);
+  }
+});
+$('#mapcity').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if(!b) return;
+  F.city = b.dataset.city;
+  document.querySelectorAll('#mapcity .chip').forEach(x => x.classList.toggle('on', x===b));
+  drawMarkers(true);
+});
+drawMarkers(false);
+map.fitBounds(L.latLngBounds(rpts).pad(0.12));
+
+/* ================= itinerary ================= */
+$('#legs').innerHTML = D.itinerary.map(l =>
+  '<div class="leg">'
+  + '<div class="no">'+l.Leg+'</div>'
+  + '<div><h3>'+esc(l.City)+'</h3>'
+  +   '<div class="dates">'+esc(fmtRange(l.Arrive, l.Depart))+(l.Lodging?' &middot; '+esc(l.Lodging):'')+'</div>'
+  +   (l['Approx km'] ? '<div class="drive">Drive from '+esc(l['Drive from previous'])+' &middot; '+l['Approx km']+' km &middot; '+esc(l['Approx drive time'])+'</div>' : '')
+  +   (l.Notes ? '<div class="note">'+esc(l.Notes)+'</div>' : '')
+  + '</div>'
+  + '<div class="nights"><b>'+l.Nights+'</b><span>night'+(l.Nights>1?'s':'')+'</span></div>'
+  + '</div>').join('');
+
+function fmtRange(a,b){
+  const A=new Date(a+'T00:00'), B=new Date(b+'T00:00');
+  const o={month:'short', day:'numeric'};
+  return A.toLocaleDateString('en-US',o)+' – '+B.toLocaleDateString('en-US',o);
+}
+
+/* ================= day by day ================= */
+$('#daysbar').innerHTML = '<span class="count">'+D.days.length+' days &middot; Sep 19 – Oct 6, 2026 &middot; a day belongs to the city you sleep in</span>';
+$('#days').innerHTML = D.days.map(d => {
+  const dt = new Date(d.date+'T00:00');
+  const evts = d.events.map(e =>
+    '<li><span class="t">'+esc(e.when || (e.kind==='travel'?'':'—'))+'</span>'
+    + '<span><span class="w">'+esc(e.what)+'</span>'
+    + (e.status ? ' '+badge(e.status) : '')
+    + (e.note ? '<div class="n">'+esc(e.note)+'</div>' : '')
+    + '</span></li>').join('');
+  return '<div class="day'+(evts?'':' free')+'">'
+    + '<div class="dt"><div class="dow">'+dt.toLocaleDateString('en-US',{weekday:'short'})+'</div>'
+    +   '<div class="num">'+dt.getDate()+'</div>'
+    +   '<div class="mon">'+dt.toLocaleDateString('en-US',{month:'short'})+'</div></div>'
+    + '<div><h4>'+esc(d.city)+(d.depart?' → Seattle':'')+'</h4>'
+    +   (d.lodging ? '<div class="city-sub">'+esc(d.lodging)+'</div>' : '')
+    +   (d.drive ? '<div class="drivebar">Drive day: '+esc(d.drive)+' → '+esc(d.city)+' &middot; '+d.km+' km &middot; '+esc(d.time)+'</div>' : '')
+    +   (evts ? '<ul class="evts">'+evts+'</ul>' : '<div class="quiet">Nothing booked — open day.</div>')
+    + '</div></div>';
+}).join('');
+
+/* ================= tables ================= */
+function poiFor(name){
+  const k = String(name||'').trim().toLowerCase();
+  return D.pois.find(p => p.name.trim().toLowerCase() === k);
+}
+function mapLink(name){
+  const p = poiFor(name);
+  if(!p) return '';
+  return '<a class="maplink" href="'+gmapsSearch(p)+'" target="_blank" rel="noopener">'
+    + (p.exact ? 'Open in Maps' : 'Open in Maps (approx.)') + '</a>';
+}
+
+function buildTable(cfg){
+  const state = {sort:cfg.defaultSort||0, desc:false, q:'', city:'ALL'};
+  const cities = ['ALL', ...new Set(cfg.rows.map(r => r[cfg.cityKey]).filter(Boolean))];
+  $(cfg.bar).innerHTML =
+    '<input type="search" placeholder="Search '+cfg.label+'…" aria-label="Search">'
+    + cities.map(c => '<button class="chip'+(c==='ALL'?' on':'')+'" data-city="'+esc(c)+'">'+(c==='ALL'?'All':esc(c))+'</button>').join('')
+    + '<span class="count" id="'+cfg.el.slice(1)+'-count"></span>';
+
+  function render(){
+    let rows = cfg.rows.filter(r =>
+      (state.city==='ALL' || r[cfg.cityKey]===state.city) &&
+      (!state.q || Object.values(r).some(v => String(v==null?'':v).toLowerCase().includes(state.q))));
+    const col = cfg.cols[state.sort];
+    if (col){
+      rows = rows.slice().sort((a,b) => {
+        const A = col.sortVal ? col.sortVal(a) : String(a[col.key]==null?'￿':a[col.key]);
+        const B = col.sortVal ? col.sortVal(b) : String(b[col.key]==null?'￿':b[col.key]);
+        return (A>B?1:A<B?-1:0) * (state.desc?-1:1);
+      });
+    }
+    $(cfg.el).innerHTML =
+      '<thead><tr>' + cfg.cols.map((c,i) =>
+        '<th data-i="'+i+'" class="'+(i===state.sort?'sorted'+(state.desc?' desc':''):'')+'">'+esc(c.h)+'</th>').join('') + '</tr></thead>'
+      + '<tbody>' + (rows.length
+        ? rows.map(r => '<tr>' + cfg.cols.map(c => '<td class="'+(c.cls||'')+'">'+(c.fmt ? c.fmt(r) : esc(r[c.key]==null?'—':r[c.key]))+'</td>').join('') + '</tr>').join('')
+        : '<tr><td colspan="'+cfg.cols.length+'"><div class="empty">Nothing matches that filter.</div></td></tr>')
+      + '</tbody>';
+    $('#'+cfg.el.slice(1)+'-count').textContent = rows.length + ' of ' + cfg.rows.length;
+  }
+  $(cfg.el).addEventListener('click', e => {
+    const th = e.target.closest('th'); if(!th) return;
+    const i = +th.dataset.i;
+    state.desc = (i===state.sort) ? !state.desc : false;
+    state.sort = i; render();
+  });
+  $(cfg.bar).addEventListener('input', e => {
+    if(e.target.type==='search'){ state.q = e.target.value.trim().toLowerCase(); render(); }
+  });
+  $(cfg.bar).addEventListener('click', e => {
+    const b = e.target.closest('.chip'); if(!b) return;
+    state.city = b.dataset.city;
+    $(cfg.bar).querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x===b));
+    render();
+  });
+  render();
+}
+
+const PRIO = {A:0, B:1, C:2};
+buildTable({
+  el:'#t-res', bar:'#resbar', label:'reservations', rows:D.reservations, cityKey:'City', defaultSort:0,
+  cols:[
+    {h:'Pri', key:'Priority', cls:'nowrap', sortVal:r=>PRIO[r.Priority]??9, fmt:r=>badge(r.Priority)},
+    {h:'City', key:'City', cls:'nowrap'},
+    {h:'Booking', key:'Restaurant / Booking', cls:'name',
+     fmt:r=>esc(r['Restaurant / Booking'])+'<br>'+mapLink(r['Restaurant / Booking'])},
+    {h:'Type', key:'Type', cls:'nowrap'},
+    {h:'Status', key:'Status', cls:'nowrap', fmt:r=>badge(r.Status)},
+    {h:'Date', key:'Dining Date', cls:'nowrap', fmt:r=>esc(r['Dining Date']||'—')+(r.Time?'<br><span style="color:var(--faint);font-size:12px">'+esc(r.Time)+'</span>':'')},
+    {h:'Party', key:'Party', cls:'nowrap'},
+    {h:'Book by', key:'Book By / Window', cls:'nowrap'},
+    {h:'How', key:'How to Book',
+     fmt:r=>/^https?:/.test(String(r['How to Book']||'')) ? '<a href="'+esc(r['How to Book'])+'" target="_blank" rel="noopener">Book online</a>' : esc(r['How to Book']||'—')},
+    {h:'Notes', key:'Notes', cls:'why'}
+  ]
+});
+buildTable({
+  el:'#t-rest', bar:'#restbar', label:'restaurants', rows:D.restaurants, cityKey:'City', defaultSort:0,
+  cols:[
+    {h:'City', key:'City', cls:'nowrap'},
+    {h:'Restaurant', key:'Restaurant', cls:'name', fmt:r=>esc(r.Restaurant)+'<br>'+mapLink(r.Restaurant)},
+    {h:'Category', key:'Category', cls:'nowrap'},
+    {h:'Why go', key:'Signature / Why go', cls:'why'},
+    {h:'Price', key:'Price', cls:'nowrap'},
+    {h:'Booking', key:'Reservation', cls:'nowrap'}
+  ]
+});
+buildTable({
+  el:'#t-sight', bar:'#sightbar', label:'sights', rows:D.sights, cityKey:'City', defaultSort:2,
+  cols:[
+    {h:'City', key:'City', cls:'nowrap'},
+    {h:'Site / Activity', key:'Site / Activity', cls:'name',
+     fmt:r=>esc(r['Site / Activity'])+'<br>'+mapLink(r['Site / Activity'])},
+    {h:'Pri', key:'Priority', cls:'nowrap', sortVal:r=>PRIO[r.Priority]??9, fmt:r=>badge(r.Priority)},
+    {h:'Category', key:'Category', cls:'nowrap'},
+    {h:'What to know', key:'Why / What to know', cls:'why'},
+    {h:'Time', key:'Time needed', cls:'nowrap'},
+    {h:'Advance ticket', key:'Advance Ticket', cls:'nowrap'}
+  ]
+});
+
+/* ================= notes ================= */
+$('#qs').innerHTML = D.notes.map(n =>
+  '<div class="q"><div class="top"><span class="topic">'+esc(n.Topic)+'</span>'+badge(n.Status)+'</div>'
+  + '<p>'+esc(n['Question / Note'])+'</p>'
+  + (n['Answer / Decision'] ? '<div class="ans">'+esc(n['Answer / Decision'])+'</div>' : '')
+  + '</div>').join('');
+
+/* ================= footer ================= */
+const approx = D.pois.filter(p => !p.exact).length;
+$('#foot').innerHTML =
+  'Built from <em>Spain_Portugal_Trip_Tracker_Haro_Updated.xlsx</em>. Read-only — edit the spreadsheet and regenerate. '
+  + D.pois.length + ' places geocoded via OpenStreetMap / Nominatim; ' + (D.pois.length - approx)
+  + ' matched to an exact venue, ' + approx + ' pinned to a street, neighbourhood or district and labelled <em>approximate</em> in their popup. '
+  + 'Driving distances are the spreadsheet’s own estimates and the route lines are straight-line, not road geometry. '
+  + 'Verify opening hours and booking policies with each venue directly.';
+</script>
+</body>
+</html>
