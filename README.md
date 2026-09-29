@@ -22,4 +22,6 @@ node _verify.js
 
 The build writes `spain-portugal-2026.html` in place. The verification script checks the generated JavaScript, map/restaurant links, travel dates, and booking statuses without extra packages.
 
+The map's **My location** button asks the browser for permission when clicked, then shows the reported position and accuracy circle. It does not save the location in the trip data.
+
 Venue hours, menus, and prices can change. The guide identifies estimates and items needing direct confirmation. Its suggested dinners are not reservations. The listed coordinates come from OpenStreetMap Nominatim or the original map data; approximate matches are marked in the guide and map.

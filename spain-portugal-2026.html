@@ -106,14 +106,18 @@ input[type=search]:focus{outline:2px solid var(--gold); outline-offset:-1px; bor
   border:2px solid #FBF8F2; box-shadow:0 2px 6px rgba(0,0,0,.35); font-size:13px;
 }
 .leaflet-popup-content-wrapper{border-radius:10px; box-shadow:0 8px 30px rgba(30,20,10,.22)}
-.leaflet-popup-content{margin:14px 16px; font-family:var(--sans); font-size:13.5px; line-height:1.45; width:280px!important}
+.leaflet-popup-content{margin:12px 14px; font-family:var(--sans); font-size:13px; line-height:1.4; width:260px!important}
 .pop h3{font-family:var(--serif); font-size:17px; margin:0 0 3px; font-weight:600; line-height:1.2}
-.pop .loc{font-size:11.5px; color:var(--faint); text-transform:uppercase; letter-spacing:.05em; margin-bottom:9px}
-.pop dl{margin:0; display:grid; grid-template-columns:auto 1fr; gap:3px 10px; font-size:12.5px}
+.pop .loc{font-size:11px; color:var(--faint); margin-bottom:6px}
+.pop .quick{margin:6px 0; color:#3A342C; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden}
+.pop details{border-top:1px solid var(--line2); margin-top:8px; padding-top:5px}
+.pop summary{cursor:pointer; color:var(--sight); font-size:12px; font-weight:600}
+.pop dl{margin:8px 0 0; display:grid; grid-template-columns:68px minmax(0,1fr); gap:4px 8px; font-size:12px}
 .pop dt{color:var(--faint); white-space:nowrap}
-.pop dd{margin:0; color:var(--ink)}
+.pop dd{margin:0; color:var(--ink); overflow-wrap:anywhere}
 .pop .why{margin:8px 0 0; font-size:13px; color:#3A342C}
-.pop .links{margin-top:11px; padding-top:10px; border-top:1px solid var(--line2); display:flex; gap:14px; font-size:12.5px}
+.pop .links{margin-top:8px; padding-top:8px; border-top:1px solid var(--line2); display:flex; flex-wrap:wrap; gap:4px 12px; font-size:11.5px}
+.geo-status{font-size:12px; color:var(--muted)}
 .pop .approx{
   display:inline-block; margin-top:9px; font-size:11px; color:#8A6A2E;
   background:#FBF3E0; border:1px solid #EBDCB8; padding:2px 7px; border-radius:4px;
@@ -259,7 +263,9 @@ footer{
   .day{grid-template-columns:60px 1fr; gap:12px; padding:13px 14px}
   #map{height:64vh; min-height:340px}
   .count{width:100%; margin-left:0; text-align:right}
-  .leaflet-popup-content{width:230px!important}
+  .leaflet-popup-content{width:min(215px, calc(100vw - 88px))!important; margin:10px 12px; font-size:12px}
+  .pop h3{font-size:16px}
+  .pop dl{grid-template-columns:60px minmax(0,1fr); font-size:11.5px}
 }
 </style>
 </head>
@@ -402,12 +408,18 @@ function popupHTML(p){
     why = why || r.Notes; }
   if (s.lodging){ push('Nights', s.lodging.Nights); push('Arrive', s.lodging.Arrive); push('Depart', s.lodging.Depart); }
   if (guide){ push('Area', guide.area); push('Address', guide.address); push('Hours', guide.hours); push('Access', guide.access); }
+  const quick = guide ? guide.why : why;
+  const status = s.reservation && s.reservation.Status;
   return '<div class="pop">'
     + '<h3>'+esc(p.name)+'</h3>'
-    + '<div class="loc">'+esc(p.city)+' &middot; '+esc(p.raw_category || CATNAME[p.category])+(p.daytrip?' &middot; day trip':'')+'</div>'
-    + (rows.length ? '<dl>'+rows.join('')+'</dl>' : '')
-    + (why ? '<p class="why">'+esc(why)+'</p>' : '')
-    + (!p.exact ? '<div class="approx">Approximate &mdash; pinned at '+esc(p.matched||p.city)+'</div>' : '')
+    + '<div class="loc">'+esc(guide ? guide.area : p.city)+' &middot; '+esc(guide ? guide.style : (p.raw_category || CATNAME[p.category]))+(p.daytrip?' &middot; outing':'')+'</div>'
+    + (status ? badge(status) : (guide ? badge('Suggested / not booked', 'NOBOOKING') : ''))
+    + (quick ? '<p class="quick">'+esc(quick)+'</p>' : '')
+    + ((rows.length || why || !p.exact) ? '<details><summary>More details</summary>'
+      + (rows.length ? '<dl>'+rows.join('')+'</dl>' : '')
+      + (why ? '<p class="why">'+esc(why)+'</p>' : '')
+      + (!p.exact ? '<div class="approx">Approximate &mdash; pinned at '+esc(p.matched||p.city)+'</div>' : '')
+      + '</details>' : '')
     + '<div class="links"><a href="'+gmapsSearch(p)+'" target="_blank" rel="noopener">Open in Maps</a>'
     + '<a href="'+(guide?addressDir(guide):gmapsDir(p))+'" target="_blank" rel="noopener">Directions</a>'
     + (guide?'<a href="'+esc(guide.source)+'" target="_blank" rel="noopener">Venue source</a>':'')+'</div>'
@@ -423,7 +435,7 @@ const markers = D.pois.map(p => {
     }),
     title: p.name
   });
-  m.bindPopup(popupHTML(p), {maxWidth:320});
+  m.bindPopup(popupHTML(p), {maxWidth:280, maxHeight:window.innerWidth<=720?200:300, keepInView:true});
   m._poi = p;
   return m;
 });
@@ -435,6 +447,8 @@ $('#mapbar').innerHTML =
   ['food','sight','wine','lodging'].map(c =>
     '<button class="chip on" data-cat="'+c+'"><span class="dot" style="background:'+CATCOLOR[c]+'"></span>'+CATNAME[c]+'</button>').join('')
   + '<span class="sep"></span><button class="chip on" data-route="1">Driving route</button>'
+  + '<button class="chip" id="my-location" type="button">My location</button>'
+  + '<span class="geo-status" id="geo-status" role="status" aria-live="polite"></span>'
   + '<span class="count" id="mapcount"></span>';
 $('#mapcity').innerHTML = CITIES.map(c =>
   '<button class="chip'+(c==='ALL'?' on':'')+'" data-city="'+esc(c)+'">'+(c==='ALL'?'All cities':esc(c))+'</button>').join('');
@@ -460,6 +474,23 @@ $('#mapbar').addEventListener('click', e => {
     F.route = !F.route; b.classList.toggle('on');
     F.route ? routeLayer.addTo(map) : map.removeLayer(routeLayer);
   }
+});
+let locationMarker, locationAccuracy;
+map.on('locationfound', e => {
+  if (locationMarker) map.removeLayer(locationMarker);
+  if (locationAccuracy) map.removeLayer(locationAccuracy);
+  locationAccuracy = L.circle(e.latlng, {radius:e.accuracy, color:'#1F5673', weight:1, fillOpacity:.1}).addTo(map);
+  locationMarker = L.circleMarker(e.latlng, {radius:7, color:'#fff', weight:2, fillColor:'#1F5673', fillOpacity:1}).addTo(map);
+  locationMarker.bindPopup('Your approximate location');
+  map.setView(e.latlng, 15);
+  $('#geo-status').textContent = 'Location found (about '+Math.round(e.accuracy)+' m accuracy).';
+});
+map.on('locationerror', () => {
+  $('#geo-status').textContent = 'Location unavailable. Check browser permission and device settings.';
+});
+$('#my-location').addEventListener('click', () => {
+  $('#geo-status').textContent = 'Finding your location…';
+  map.locate({setView:false, enableHighAccuracy:true, timeout:10000, maximumAge:60000});
 });
 $('#mapcity').addEventListener('click', e => {
   const b = e.target.closest('.chip'); if(!b) return;
