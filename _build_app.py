@@ -1,7 +1,48 @@
 import json, datetime, html
+from pathlib import Path
 
-raw = json.load(open('raw.json'))
-pois = json.load(open('pois_geo.json'))
+ROOT = Path(__file__).resolve().parent
+raw = json.loads((ROOT / 'raw.json').read_text(encoding='utf-8'))
+pois = json.loads((ROOT / 'pois_geo.json').read_text(encoding='utf-8'))
+guide = json.loads((ROOT / 'san_sebastian_guide.json').read_text(encoding='utf-8'))
+
+def normal(name):
+    import unicodedata
+    return ''.join(c for c in unicodedata.normalize('NFKD', name.casefold()) if c.isalnum())
+
+existing_restaurants = {normal(r['Restaurant']): r for r in raw['restaurants']}
+existing_pois = {normal(p['name']): p for p in pois}
+for venue in guide:
+    name = venue['name']
+    key = normal(name)
+    if key not in existing_restaurants:
+        row = {'City': venue['city'], 'Restaurant': name, 'Category': venue['style'],
+               'Signature / Why go': venue['why'] + ' Try: ' + venue['orders'],
+               'Price': venue['price'], 'Reservation': venue['booking'],
+               'Interested?': None}
+        raw['restaurants'].append(row)
+        existing_restaurants[key] = row
+    elif key not in (normal('Martín Berasategui'), normal('Asador Etxebarri')):
+        row = existing_restaurants[key]
+        row['Signature / Why go'] = venue['why'] + ' Try: ' + venue['orders']
+        row['Price'] = venue['price']
+        row['Reservation'] = venue['booking']
+    if key not in existing_pois:
+        if 'lat' not in venue or 'lon' not in venue:
+            raise ValueError(f'Missing coordinates for {name}')
+        pin = {'name': name, 'city': venue['city'], 'category': 'food',
+               'raw_category': venue['style'], 'query': venue['address'],
+               'daytrip': venue['area'] in ('Hondarribia', 'Getaria', 'Axpe, Atxondo'),
+               'area': False, 'sources': {'restaurant': existing_restaurants[key]},
+               'lat': venue['lat'], 'lon': venue['lon'], 'matched': venue['coordinate_note'],
+               'exact': venue['exact']}
+        pois.append(pin)
+        existing_pois[key] = pin
+
+for pin in pois:
+    row = existing_restaurants.get(normal(pin['name']))
+    if row:
+        pin['sources']['restaurant'] = row
 
 # ---------- city anchors (for map fit + city list) ----------
 CITY_COORD = {
@@ -67,6 +108,7 @@ payload = {
  'sights': raw['sights'],
  'notes': raw['notes'],
  'pois': pois,
+ 'sanSebastianGuide': guide,
  'days': days,
  'route': [{'city': c, 'lat': CITY_COORD[c][0], 'lon': CITY_COORD[c][1],
             'leg': legs[i]['Leg'], 'km': legs[i]['Approx km'],
@@ -75,7 +117,7 @@ payload = {
  'cityCoord': {k: list(v) for k, v in CITY_COORD.items()},
 }
 
-TPL = open('template.html', encoding='utf-8').read()
+TPL = (ROOT / 'template.html').read_text(encoding='utf-8')
 out = TPL.replace('/*__DATA__*/', json.dumps(payload, ensure_ascii=False))
-open('/sessions/practical-festive-darwin/mnt/outputs/spain-portugal-2026.html','w',encoding='utf-8').write(out)
+(ROOT / 'spain-portugal-2026.html').write_text(out, encoding='utf-8')
 print('wrote', len(out), 'bytes |', len(pois), 'pois |', len(days), 'days')

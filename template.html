@@ -163,6 +163,29 @@ td.nowrap{white-space:nowrap}
 .maplink:hover{color:var(--sight); border-color:var(--sight)}
 .empty{padding:40px 20px; text-align:center; color:var(--faint); font-size:14px}
 
+/* ---------- San Sebastian food guide ---------- */
+.foodguide{margin-bottom:24px}
+.guideintro{background:#FDFBF6; border:1px solid var(--line); border-radius:12px; padding:18px; box-shadow:var(--shadow)}
+.guideintro h2{font-family:var(--serif); font-size:24px; margin:0 0 5px}
+.guideintro p{font-size:13.5px; color:var(--muted); margin:6px 0}
+.guideintro .confirmed{color:#2C6437; font-weight:600}
+.crawl{margin-top:12px; padding:11px 13px; background:#FBF6EC; border:1px solid #EDE0C9; border-radius:8px; font-size:13px}
+.crawl strong{display:block; margin-bottom:5px}
+.crawl a{white-space:nowrap}
+.guidefilters{display:flex; flex-wrap:wrap; gap:8px; margin:15px 0}
+.guidegrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:11px}
+.venue{background:var(--card); border:1px solid var(--line); border-radius:11px; padding:15px; box-shadow:var(--shadow); min-width:0}
+.venue h3{font-family:var(--serif); font-size:19px; line-height:1.2; margin:0}
+.venue .area{font-size:12px; color:var(--faint); margin:3px 0 8px}
+.venue .style{color:var(--food); font-size:11px; font-weight:650; text-transform:uppercase; letter-spacing:.05em}
+.venue p{font-size:13px; margin:7px 0; color:var(--muted)}
+.venue dl{display:grid; grid-template-columns:66px 1fr; gap:4px 8px; font-size:12px; margin:9px 0}
+.venue dt{color:var(--faint)}
+.venue dd{margin:0}
+.venue .links{display:flex; flex-wrap:wrap; gap:10px; padding-top:9px; border-top:1px solid var(--line2); font-size:12px}
+.venue .checked{font-size:11px; color:var(--faint); margin-top:8px}
+.guidefine{font-size:12px; color:var(--muted); margin:12px 0 0}
+
 /* ---------- itinerary cards ---------- */
 .legs{display:grid; gap:12px}
 .leg{
@@ -276,6 +299,7 @@ footer{
     <div class="tablewrap"><table id="t-res"></table></div>
   </section>
   <section class="panel" id="p-rest">
+    <div class="foodguide" id="foodguide"></div>
     <div class="bar" id="restbar"></div>
     <div class="tablewrap"><table id="t-rest"></table></div>
   </section>
@@ -301,8 +325,9 @@ const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<'
 const CATNAME = {food:'Food & drink', sight:'Sight', wine:'Wine', lodging:'Lodging'};
 const CATCOLOR = {food:'#C0431B', sight:'#1F5673', wine:'#7B2D4E', lodging:'#3D6B45'};
 const slug = s => String(s||'').replace(/[^A-Za-z]/g,'').toUpperCase();
-const gmapsSearch = p => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.name + ', ' + p.city);
+const gmapsSearch = p => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.query || (p.name + ', ' + p.city));
 const gmapsDir = p => 'https://www.google.com/maps/dir/?api=1&destination=' + p.lat + ',' + p.lon;
+const addressDir = v => 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(v.address);
 const badge = (txt, cls) => txt ? '<span class="badge b-'+(cls||slug(txt))+'">'+esc(txt)+'</span>' : '';
 
 /* ================= header ================= */
@@ -365,6 +390,7 @@ const cluster = L.markerClusterGroup({
 
 function popupHTML(p){
   const s = p.sources, rows = [];
+  const guide = (D.sanSebastianGuide||[]).find(v => v.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase() === p.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase());
   const push = (k,v) => { if(v!=null && v!=='' ) rows.push('<dt>'+esc(k)+'</dt><dd>'+esc(v)+'</dd>'); };
   let why = '';
   if (s.restaurant){ why = s.restaurant['Signature / Why go']; push('Price', s.restaurant.Price); push('Booking', s.restaurant.Reservation); }
@@ -375,6 +401,7 @@ function popupHTML(p){
     push('Party', r.Party); push('Book by', r['Book By / Window']); push('How', r['How to Book']);
     why = why || r.Notes; }
   if (s.lodging){ push('Nights', s.lodging.Nights); push('Arrive', s.lodging.Arrive); push('Depart', s.lodging.Depart); }
+  if (guide){ push('Area', guide.area); push('Address', guide.address); push('Hours', guide.hours); push('Access', guide.access); }
   return '<div class="pop">'
     + '<h3>'+esc(p.name)+'</h3>'
     + '<div class="loc">'+esc(p.city)+' &middot; '+esc(p.raw_category || CATNAME[p.category])+(p.daytrip?' &middot; day trip':'')+'</div>'
@@ -382,7 +409,8 @@ function popupHTML(p){
     + (why ? '<p class="why">'+esc(why)+'</p>' : '')
     + (!p.exact ? '<div class="approx">Approximate &mdash; pinned at '+esc(p.matched||p.city)+'</div>' : '')
     + '<div class="links"><a href="'+gmapsSearch(p)+'" target="_blank" rel="noopener">Open in Maps</a>'
-    + '<a href="'+gmapsDir(p)+'" target="_blank" rel="noopener">Directions</a></div>'
+    + '<a href="'+(guide?addressDir(guide):gmapsDir(p))+'" target="_blank" rel="noopener">Directions</a>'
+    + (guide?'<a href="'+esc(guide.source)+'" target="_blank" rel="noopener">Venue source</a>':'')+'</div>'
     + '</div>';
 }
 
@@ -417,7 +445,8 @@ function drawMarkers(fit){
   cluster.addLayers(vis);
   $('#mapcount').textContent = vis.length + ' of ' + markers.length + ' places';
   if (fit && vis.length){
-    map.fitBounds(L.latLngBounds(vis.map(m => m.getLatLng())).pad(0.18), {maxZoom:15});
+    const local = F.city==='San Sebastian' ? vis.filter(m=>!m._poi.daytrip) : vis;
+    map.fitBounds(L.latLngBounds((local.length?local:vis).map(m => m.getLatLng())).pad(0.18), {maxZoom:15});
   } else if (fit) {
     map.setView([40.0,-5.2], 6);
   }
@@ -481,6 +510,42 @@ $('#days').innerHTML = D.days.map(d => {
 }).join('');
 
 /* ================= tables ================= */
+const GUIDE_GROUPS = ['Near us in Gros','Pintxo crawl','Sit-down dinner','Optional outings'];
+const guide = D.sanSebastianGuide || [];
+const guideRoute = ['Bodega Donostiarra','Txepetxa','Bar Sport','Ganbara','La Viña'];
+const guideVenue = name => guide.find(v => v.name===name);
+$('#foodguide').innerHTML = '<div class="guideintro"><h2>San Sebastián food guide</h2>'
+  + '<p>Three of us are based in Gros through Sunday, October 4. These are choices, not booked tables. Tuesday, September 29 was a proposed crawl, not a recorded visit. Sunday remains flexible; drive to Madrid Monday, October 5.</p>'
+  + '<p class="confirmed">Confirmed: Martín Berasategui, Friday October 2 at 9:15 p.m. for three. Etxebarri remains waitlisted without a dining date.</p>'
+  + '<div class="crawl"><strong>Flexible Old Town crawl · check each kitchen before setting out</strong>'
+  + guideRoute.map((name,i)=>'<a href="'+addressDir(guideVenue(name))+'" target="_blank" rel="noopener">'+esc(name)+'</a>'+(i<guideRoute.length-1?' → ':'')).join('')
+  + '<p>Start in Gros with an Indurain or mini Completo, then anchovies at Txepetxa, foie at Sport, mushrooms at Ganbara, and cheesecake at La Viña. Skip closed or crowded stops; Gandarias or La Cuchara can substitute.</p></div></div>'
+  + '<div class="guidefilters" role="group" aria-label="San Sebastián restaurant choices">'
+  + GUIDE_GROUPS.map((g,i)=>'<button class="chip'+(i===0?' on':'')+'" data-group="'+esc(g)+'">'+esc(g)+'</button>').join('')+'</div>'
+  + '<div class="guidegrid" id="guidegrid"></div>'
+  + '<p class="guidefine">Cider house is a low-priority alternative, not scheduled. Traditional txotx is mainly mid-January through April; some cider-house restaurants open year-round. <a href="https://sansebastianturismoa.eus/en/gastronomy/cider/" target="_blank" rel="noopener">Tourism source</a>. Bayonne remains undecided.</p>';
+function drawGuide(group){
+  $('#guidegrid').innerHTML = guide.filter(v=>v.groups.includes(group)).map(v=>
+    '<article class="venue"><div class="style">'+esc(v.style)+(v.bourdain?' · Bourdain visit':'')+'</div>'
+    + '<h3>'+esc(v.name)+'</h3><div class="area">'+esc(v.area)+' · '+esc(v.address)+'</div>'
+    + '<p>'+esc(v.why)+'</p><dl>'
+    + '<dt>Order</dt><dd>'+esc(v.orders)+'</dd>'
+    + '<dt>Budget</dt><dd>'+esc(v.price)+'</dd>'
+    + '<dt>Booking</dt><dd>'+esc(v.booking)+'</dd>'
+    + '<dt>Service</dt><dd>'+esc(v.hours)+'</dd>'
+    + '<dt>From Gros</dt><dd>'+esc(v.access)+'</dd></dl>'
+    + '<div class="links"><a href="'+addressDir(v)+'" target="_blank" rel="noopener">Directions</a>'
+    + '<a href="'+esc(v.source)+'" target="_blank" rel="noopener">Source</a>'
+    + (v.bourdain?'<a href="https://explorepartsunknown.com/san-sebastian/episode-intel-from-san-sebastian/" target="_blank" rel="noopener">Parts Unknown</a>':'')+'</div>'
+    + '<div class="checked">Checked '+esc(v.checked)+' · '+(v.exact?'venue pin':'address / approximate pin')+'</div></article>').join('');
+}
+$('#foodguide .guidefilters').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-group]'); if(!b) return;
+  $('#foodguide .guidefilters').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+  drawGuide(b.dataset.group);
+});
+drawGuide(GUIDE_GROUPS[0]);
+
 function poiFor(name){
   const k = String(name||'').trim().toLowerCase();
   return D.pois.find(p => p.name.trim().toLowerCase() === k);
@@ -564,8 +629,8 @@ buildTable({
     {h:'Restaurant', key:'Restaurant', cls:'name', fmt:r=>esc(r.Restaurant)+'<br>'+mapLink(r.Restaurant)},
     {h:'Category', key:'Category', cls:'nowrap'},
     {h:'Why go', key:'Signature / Why go', cls:'why'},
-    {h:'Price', key:'Price', cls:'nowrap'},
-    {h:'Booking', key:'Reservation', cls:'nowrap'}
+    {h:'Price', key:'Price', cls:'why'},
+    {h:'Booking', key:'Reservation', cls:'why'}
   ]
 });
 buildTable({
@@ -592,7 +657,7 @@ $('#qs').innerHTML = D.notes.map(n =>
 /* ================= footer ================= */
 const approx = D.pois.filter(p => !p.exact).length;
 $('#foot').innerHTML =
-  'Built from <em>Spain_Portugal_Trip_Tracker_Haro_Updated.xlsx</em>. Read-only — edit the spreadsheet and regenerate. '
+  'Built from repository JSON sources recovered from the original trip tracker and the San Sebastián guide. '
   + D.pois.length + ' places geocoded via OpenStreetMap / Nominatim; ' + (D.pois.length - approx)
   + ' matched to an exact venue, ' + approx + ' pinned to a street, neighbourhood or district and labelled <em>approximate</em> in their popup. '
   + 'Driving distances are the spreadsheet’s own estimates and the route lines are straight-line, not road geometry. '
